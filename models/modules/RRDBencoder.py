@@ -66,7 +66,7 @@ class RRDBNet(nn.Module):
         RRDB_block_f = functools.partial(RRDB, nf=nf, gc=gc)
         self.scale = scale
 
-        self.conv_first = nn.Conv2d(config.in_nc, nf, 3, 1, 1, bias=True)
+        self.conv_first = nn.Conv2d(config.netG.in_nc, nf, 3, 1, 1, bias=True)
         self.RRDB_trunk = mutil.make_layer(RRDB_block_f, nb)
         self.trunk_conv = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
 
@@ -81,7 +81,7 @@ class RRDBNet(nn.Module):
             self.upconv5 = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
 
         self.HRconv = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
-        self.conv_last = nn.Conv2d(nf, config.out_nc, 3, 1, 1, bias=True)
+        self.conv_last = nn.Conv2d(nf, config.netG.out_nc, 3, 1, 1, bias=True)
 
         self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
 

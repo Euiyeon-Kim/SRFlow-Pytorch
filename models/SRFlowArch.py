@@ -15,7 +15,7 @@ class SRFlowNet(nn.Module):
         super(SRFlowNet, self).__init__()
         self.config = config
 
-        self.encoder = RRDBNet(gc, scale, config)
+        self.RRDB = RRDBNet(gc, scale, config)
         self.RRDB_training = True
         self.set_rrdb_training(True)
 

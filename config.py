@@ -1,18 +1,21 @@
 from dotmap import DotMap
 
 config = DotMap({
-    'scale': 4,
-    'in_nc': 3,
-    'out_nc': 3,
+    'scale': 8,
     'patch_size': (160, 160, 3),                    # H, W, C
+    'path': {
+        'netG_weight_path': 'SRFlow_CelebA_8X.pth'
+    },
+
     'train': {
         'dist': False,
         'gpu_ids': None,
         'n_iter': 200000,
-        'resume': False,
-        'resume_path': None,
+        'resume': True,
     },
     'netG': {
+        'in_nc': 3,
+        'out_nc': 3,
         'RRDBencoder': {
             'nf': 64,
             'nb': 8,

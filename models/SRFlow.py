@@ -13,6 +13,9 @@
 # limitations under the License.
 #
 # This file contains content licensed by https://github.com/xinntao/BasicSR/blob/master/LICENSE/LICENSE
+import os
+from collections import OrderedDict
+from termcolor import colored
 
 import torch
 import torch.nn as nn
@@ -32,13 +35,16 @@ class SRFlowModel:
         self.hr_size = config.patch_size[0]
         self.lr_size = self.hr_size // config.scale
 
-        self.netG = SRFlowNet(config=config).to(self.device)
+        self.netG = SRFlowNet(config=config, scale=config.scale).to(self.device)
         if config.train.dist:
             self.rank = torch.distributed.get_rank()
             self.netG = DistributedDataParallel(self.netG, device_ids=[torch.cuda.current_device()])
         else:
             self.rank = -1  # non dist training
             self.netG = DataParallel(self.netG)
+
+        if config.train.resume:
+            self.load()
 
     def to(self, device):
         self.device = device
@@ -66,3 +72,28 @@ class SRFlowModel:
         if self.rank <= 0:
             print('Network G structure: {}, with parameters: {:,d}'.format(net_struc_str, n))
             print(s)
+
+    def load_network(self, load_path, network, strict=True, submodule=None):
+        if isinstance(network, nn.DataParallel) or isinstance(network, DistributedDataParallel):
+            network = network.module
+        if not (submodule is None or submodule.lower() == 'none'.lower()):
+            network = network.__getattr__(submodule)
+        load_net = torch.load(load_path)
+        load_net_clean = OrderedDict()  # remove unnecessary 'module.'
+        for k, v in load_net.items():
+            if k.startswith('module.'):
+                load_net_clean[k[7:]] = v
+            else:
+                load_net_clean[k] = v
+        network.load_state_dict(load_net_clean, strict=strict)
+
+    def load(self):
+        if self.config.path.G_weight_path is not None:
+            if os.path.exists(self.config.path.netG_weight_path):
+                self.load_network(self.config.path.netG_weight_path, self.netG, strict=True, submodule=None)
+                print(colored(f'Loaded generator weight from [{self.config.path.netG_weight_path}]', 'green'))
+            else:
+                raise FileNotFoundError(
+                    colored(f'Generator weight doesn\'t exists [{self.config.path.netG_weight_path}]', 'red'))
+        else:
+            raise ValueError(colored(f'Need pretrained SR network weights to load', 'red'))
