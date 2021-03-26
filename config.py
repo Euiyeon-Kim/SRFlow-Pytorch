@@ -1,10 +1,17 @@
 from dotmap import DotMap
 
+EXP_NAME = 'tmp'
+
 config = DotMap({
+    'is_train': True,
     'scale': 8,
     'patch_size': (160, 160, 3),                    # H, W, C
     'path': {
-        'netG_weight_path': 'SRFlow_CelebA_8X.pth'
+        'exp_path': f'exps/{EXP_NAME}',
+        'netG_weight_path': 'resources/SRFlow_CelebA_8X.pth'
+    },
+    'dataset': {
+        'batch_size': 16,
     },
 
     'train': {
@@ -12,6 +19,16 @@ config = DotMap({
         'gpu_ids': None,
         'n_iter': 200000,
         'resume': True,
+        # Optimizer
+        'weight_decay_G': 0,
+        'lr_G': 5e-4,
+        'lr_RRDB': 5e-4,
+        'lr_scheme': 'MultiStepLR',
+        'warmup_iter': -1,
+        'beta1': 0.9,
+        'beta2': 0.99,
+        'lr_steps_rel': [0.5, 0.75, 0.9, 0.95],
+        'lr_gamma': 0.5,
     },
     'netG': {
         'in_nc': 3,
@@ -56,8 +73,18 @@ config = DotMap({
     }
 })
 
+n_iter = config.train.n_iter
+if config.train.T_period_rel:
+    config.train.T_period = [int(x * n_iter) for x in config.train.T_period_rel]
+if config.train.restarts_rel:
+    config.train.restarts = [int(x * n_iter) for x in config.train.restarts_rel]
+if config.train.lr_steps_rel:
+    config.train.lr_steps = [int(x * n_iter) for x in config.train.lr_steps_rel]
+if config.train.lr_steps_inverse_rel:
+    config.train.lr_steps_inverse = [int(x * n_iter) for x in config.train.lr_steps_inverse_rel]
+
 if __name__ == '__main__':
-    print(not config.netG.flow.levelConditional.conditional)
-    print(config.netG.flow.split.type or 'Split2d')
+    print(config.train.weight_l1 or 0)
     exit()
+
 
