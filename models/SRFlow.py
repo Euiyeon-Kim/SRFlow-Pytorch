@@ -38,6 +38,8 @@ class SRFlowModel:
         self.n_sample = config.val.n_sample
         self.hr_size = config.patch_size[0]
         self.lr_size = self.hr_size // config.scale
+        self.var_L = None
+        self.real_H = None
 
         self.netG = SRFlowNet(config=config, scale=config.scale).to(self.device)
         if config.train.dist:
@@ -65,13 +67,13 @@ class SRFlowModel:
             if v.requires_grad:
                 if '.RRDB.' in k:
                     optim_params_rrdb.append(v)
-                    print('opt', k)
+                    # print('opt', k)
                 else:
                     optim_params_other.append(v)
                 if self.rank <= 0:
                     colored(f'Params [{k}] will not optimize.', 'red')
 
-        print('rrdb params', len(optim_params_rrdb))
+        # print('rrdb params', len(optim_params_rrdb))
 
         # Set optimizer
         self.optimizer_G = torch.optim.Adam(
@@ -134,21 +136,21 @@ class SRFlowModel:
     def update_learning_rate(self, cur_iter, warmup_iter=-1):
         for scheduler in self.schedulers:
             scheduler.step()
-        #### set up warm up learning rate
+        # Set up warm up learning rate
         if cur_iter < warmup_iter:
-            # get initial lr for each group
+            # Get initial lr for each group
             init_lr_g_l = self._get_init_lr()
-            # modify warming-up learning rates
+            # Modify warming-up learning rates
             warm_up_lr_l = []
             for init_lr_g in init_lr_g_l:
                 warm_up_lr_l.append([v / warmup_iter * cur_iter for v in init_lr_g])
-            # set learning rate
+            # Set learning rate
             self._set_lr(warm_up_lr_l)
 
     def feed_data(self, data, need_gt=True):
-        self.var_L = data['LQ'].to(self.device)  # LQ
+        self.var_L = data['LQ'].to(self.device, torch.float)  # LQ
         if need_gt:
-            self.real_H = data['GT'].to(self.device)  # GT
+            self.real_H = data['GT'].to(self.device, torch.float)  # GT
 
     def optimize_parameters(self, step):
         train_RRDB_delay = self.config.netG.RRDBencoder.train_delay

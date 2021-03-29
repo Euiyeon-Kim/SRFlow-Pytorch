@@ -82,7 +82,7 @@ class SRFlowNet(nn.Module):
         return z, nll, logdet
 
     def preprocess_encoder_output(self, lr):
-        rrdb_results = self.encoder(lr, get_steps=True)
+        rrdb_results = self.RRDB(lr, get_steps=True)
         block_idxs = self.config.netG.RRDBencoder.stackRRDB.blocks
         if len(block_idxs) > 0:
             concat = torch.cat([rrdb_results["block_{}".format(idx)] for idx in block_idxs], dim=1)
@@ -93,9 +93,9 @@ class SRFlowNet(nn.Module):
                     keys.append('fea_up0')
                 if 'fea_up-1' in rrdb_results.keys():
                     keys.append('fea_up-1')
-                if self.opt['scale'] >= 8:
+                if self.config.scale >= 8:
                     keys.append('fea_up8')
-                if self.opt['scale'] == 16:
+                if self.config.scale == 16:
                     keys.append('fea_up16')
                 for k in keys:
                     h = rrdb_results[k].shape[2]
@@ -110,7 +110,7 @@ class SRFlowNet(nn.Module):
 
     def reverse_flow(self, lr, z, y_onehot, eps_std, epses=None, lr_enc=None, add_gt_noise=True):
         logdet = torch.zeros_like(lr[:, 0, 0, 0])
-        pixels = thops.pixels(lr) * self.opt['scale'] ** 2
+        pixels = thops.pixels(lr) * self.config.scale ** 2
 
         if add_gt_noise:
             logdet = logdet - float(-np.log(self.quant) * pixels)

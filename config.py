@@ -10,8 +10,17 @@ config = DotMap({
         'exp_path': f'exps/{EXP_NAME}',
         'netG_weight_path': 'resources/SRFlow_CelebA_8X.pth'
     },
+
     'dataset': {
-        'batch_size': 16,
+        'data_root_dir': 'datasets/CelebA',
+        'batch_size': 1,
+        'num_workers': 10,
+        'augment': {
+            'use_shuffle': True,
+            'crop_center': False,
+            'use_flip': True,
+            'use_rot': False,
+        }
     },
 
     'train': {
