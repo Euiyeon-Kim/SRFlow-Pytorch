@@ -137,7 +137,7 @@ class RRDBNet(nn.Module):
                                                align_corners=False, recompute_scale_factor=True)
 
         if self.config.netG.RRDBencoder.fea_up_1:
-            results['fea_up-1'] = F.interpolate(last_lr_fea, scale_factor=1/4, mode='bilinear',
+            results['fea_up_1'] = F.interpolate(last_lr_fea, scale_factor=1/4, mode='bilinear',
                                                 align_corners=False, recompute_scale_factor=True)
 
         if get_steps:

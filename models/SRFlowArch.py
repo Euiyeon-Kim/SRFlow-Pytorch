@@ -88,8 +88,8 @@ class SRFlowNet(nn.Module):
                 keys = ['last_lr_fea', 'fea_up1', 'fea_up2', 'fea_up4']
                 if 'fea_up0' in rrdb_results.keys():
                     keys.append('fea_up0')
-                if 'fea_up-1' in rrdb_results.keys():
-                    keys.append('fea_up-1')
+                if 'fea_up_1' in rrdb_results.keys():
+                    keys.append('fea_up_1')
                 if self.config.scale >= 8:
                     keys.append('fea_up8')
                 if self.config.scale == 16:

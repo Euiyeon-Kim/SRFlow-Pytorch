@@ -4,11 +4,11 @@ EXP_NAME = 'tmp'
 
 config = DotMap({
     'is_train': True,
-    'scale': 8,
+    'scale': 4,
     'patch_size': (160, 160, 3),                    # H, W, C
     'path': {
         'exp_path': f'exps/{EXP_NAME}',
-        'netG_weight_path': 'resources/SRFlow_CelebA_8X.pth'
+        'netG_weight_path': None #'resources/SRFlow_CelebA_8X.pth'
     },
 
     'dataset': {
@@ -30,7 +30,7 @@ config = DotMap({
         'n_iter': 200000,
         'val_freq': 10000,
         'save_freq': 10000,
-        'resume': True,
+        'resume': False,
         # Optimizer
         'weight_decay_G': 0,
         'lr_G': 5e-4,
@@ -55,7 +55,7 @@ config = DotMap({
                 'concat': True,                     # Concat RRDB features for rich description of LR
             },
             'fea_up0': True,
-            'fea_up_1': False,
+            'fea_up_1': False,                      # If scale == 4
         },
         'flow': {
             'K': 16,
@@ -94,6 +94,9 @@ if config.train.lr_steps_rel:
     config.train.lr_steps = [int(x * n_iter) for x in config.train.lr_steps_rel]
 if config.train.lr_steps_inverse_rel:
     config.train.lr_steps_inverse = [int(x * n_iter) for x in config.train.lr_steps_inverse_rel]
+if config.scale == 4:
+    config.netG.RRDBencoder.fea_up_1 = True
+
 
 if __name__ == '__main__':
     print(config.train.weight_l1 or 0)

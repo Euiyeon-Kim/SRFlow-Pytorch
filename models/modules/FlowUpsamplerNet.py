@@ -45,15 +45,15 @@ class FlowUpsamplerNet(nn.Module):
         elif config.scale == 8:
             self.levelToName = {0: 'fea_up8', 1: 'fea_up4', 2: 'fea_up2', 3: 'fea_up1', 4: 'fea_up0'}
         elif config.scale == 4:
-            self.levelToName = {0: 'fea_up4', 1: 'fea_up2', 2: 'fea_up1', 3: 'fea_up0', 4: 'fea_up-1'}
+            self.levelToName = {0: 'fea_up4', 1: 'fea_up2', 2: 'fea_up1', 3: 'fea_up0', 4: 'fea_up_1'}
 
         affine_in_nc = self.get_affine_inch()
         flow_permutation = config.netG.flow.flow_permutation
-        norm_config = None # opt_get(opt, ['network_G', 'flow', 'norm'])
+        norm_config = None
 
         conditional_channels = {}
         n_rrdb = self.get_n_rrdb_channels()
-        n_bypass_channels = None # opt_get(opt, ['network_G', 'flow', 'levelConditional', 'n_channels'])
+        n_bypass_channels = None
         conditional_channels[0] = n_rrdb
         for level in range(1, self.L + 1):
             # Level 1 gets conditionals from 2, 3, 4 => L - level
