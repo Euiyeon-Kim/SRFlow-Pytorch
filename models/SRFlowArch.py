@@ -34,11 +34,10 @@ class SRFlowNet(nn.Module):
             return True
         return False
 
-    def forward(self, gt=None, lr=None, z=None, eps_std=None, reverse=False, epses=None, reverse_with_grad=False,
-                lr_enc=None, add_gt_noise=False, step=None, y_label=None):
+    def forward(self, gt=None, lr=None, z=None, eps_std=None, reverse=False, epses=None,
+                reverse_with_grad=False, lr_enc=None, add_gt_noise=False, y_label=None):
         if not reverse:
-            return self.normal_flow(gt, lr, epses=epses, lr_enc=lr_enc, add_gt_noise=add_gt_noise, step=step,
-                                    y_onehot=y_label)
+            return self.normal_flow(gt, lr, epses=epses, lr_enc=lr_enc, add_gt_noise=add_gt_noise, y_onehot=y_label)
         else:
             assert lr.shape[1] == 3
             if reverse_with_grad:
@@ -49,13 +48,12 @@ class SRFlowNet(nn.Module):
                     return self.reverse_flow(lr, z, y_onehot=y_label, eps_std=eps_std, epses=epses, lr_enc=lr_enc,
                                              add_gt_noise=add_gt_noise)
 
-    def normal_flow(self, gt, lr, y_onehot=None, epses=None, lr_enc=None, add_gt_noise=True, step=None):
+    def normal_flow(self, gt, lr, y_onehot=None, epses=None, lr_enc=None, add_gt_noise=True):
         if lr_enc is None:
             lr_enc = self.preprocess_encoder_output(lr)
 
         logdet = torch.zeros_like(gt[:, 0, 0, 0])
         pixels = thops.pixels(gt)
-
         z = gt
 
         if add_gt_noise:
@@ -63,9 +61,8 @@ class SRFlowNet(nn.Module):
             logdet = logdet + float(-np.log(self.quant) * pixels)
 
         # Encode
-        epses, logdet = self.flowUpsamplerNet(rrdb_results=lr_enc, gt=z, logdet=logdet, reverse=False, epses=epses,
-                                              y_onehot=y_onehot)
-
+        epses, logdet = self.flowUpsamplerNet(rrdb_results=lr_enc, gt=z, logdet=logdet, reverse=False,
+                                              epses=epses, y_onehot=y_onehot)
         objective = logdet.clone()
 
         if isinstance(epses, (list, tuple)):
@@ -116,7 +113,7 @@ class SRFlowNet(nn.Module):
             logdet = logdet - float(-np.log(self.quant) * pixels)
 
         if lr_enc is None:
-            lr_enc = self.rrdbPreprocessing(lr)
+            lr_enc = self.preprocess_encoder_output(lr)
 
         x, logdet = self.flowUpsamplerNet(rrdb_results=lr_enc, z=z, eps_std=eps_std,
                                           reverse=True, epses=epses, logdet=logdet)

@@ -12,8 +12,9 @@ config = DotMap({
     },
 
     'dataset': {
-        'data_root_dir': 'datasets/CelebA',
-        'batch_size': 1,
+        'train_root_dir': 'datasets/CelebA/train',
+        'valid_root_dir': 'datasets/CelebA/valid',
+        'batch_size': 2,
         'num_workers': 10,
         'augment': {
             'use_shuffle': True,
@@ -27,6 +28,8 @@ config = DotMap({
         'dist': False,
         'gpu_ids': None,
         'n_iter': 200000,
+        'val_freq': 10000,
+        'save_freq': 10000,
         'resume': True,
         # Optimizer
         'weight_decay_G': 0,

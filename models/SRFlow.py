@@ -14,6 +14,8 @@
 #
 # This file contains content licensed by https://github.com/xinntao/BasicSR/blob/master/LICENSE/LICENSE
 import os
+import glob
+import natsort
 from collections import OrderedDict
 from termcolor import colored
 
@@ -40,7 +42,9 @@ class SRFlowModel:
         self.lr_size = self.hr_size // config.scale
         self.var_L = None
         self.real_H = None
+        self.fake_H = None
 
+        # Define Model
         self.netG = SRFlowNet(config=config, scale=config.scale).to(self.device)
         if config.train.dist:
             self.rank = torch.distributed.get_rank()
@@ -49,13 +53,13 @@ class SRFlowModel:
             self.rank = -1  # non dist training
             self.netG = DataParallel(self.netG)
 
+        # Load trained weights
         if config.train.resume:
             self.load()
 
         if config.is_train:
             self.netG.train()
             self.init_optimizer_and_scheduler()
-            self.log_dict = OrderedDict()
 
     def init_optimizer_and_scheduler(self):
         # optimizers
@@ -133,6 +137,10 @@ class SRFlowModel:
             init_lr_groups_l.append([v['initial_lr'] for v in optimizer.param_groups])
         return init_lr_groups_l
 
+    def get_current_lr(self):
+        # return self.schedulers[0].get_lr()[0]
+        return self.optimizers[0].param_groups[0]['lr']
+
     def update_learning_rate(self, cur_iter, warmup_iter=-1):
         for scheduler in self.schedulers:
             scheduler.step()
@@ -148,21 +156,18 @@ class SRFlowModel:
             self._set_lr(warm_up_lr_l)
 
     def feed_data(self, data, need_gt=True):
-        self.var_L = data['LQ'].to(self.device, torch.float)  # LQ
+        self.var_L = data['LQ'].to(self.device)        # LQ
         if need_gt:
-            self.real_H = data['GT'].to(self.device, torch.float)  # GT
+            self.real_H = data['GT'].to(self.device)   # GT
 
     def optimize_parameters(self, step):
-        train_RRDB_delay = self.config.netG.RRDBencoder.train_delay
-        if train_RRDB_delay is not None and step > int(train_RRDB_delay * self.config.train.n_iter) \
+        train_rrdb_delay = self.config.netG.RRDBencoder.train_delay
+        if train_rrdb_delay is not None and step > int(train_rrdb_delay * self.config.train.n_iter) \
                 and not self.netG.module.RRDB_training:
             if self.netG.module.set_rrdb_training(True):
                 self.add_optimizer_and_scheduler_RRDB()
 
-        # self.print_rrdb_state()
-
         self.netG.train()
-        self.log_dict = OrderedDict()
         self.optimizer_G.zero_grad()
 
         losses = {}
@@ -185,6 +190,29 @@ class SRFlowModel:
 
         mean = total_loss.item()
         return mean
+
+    def test(self):
+        self.netG.eval()
+        self.fake_H = {}
+        for heat in self.heats:
+            for i in range(self.n_sample):
+                z = self.get_z(heat, seed=None, batch_size=self.var_L.shape[0], lr_shape=self.var_L.shape)
+                with torch.no_grad():
+                    self.fake_H[(heat, i)], logdet = self.netG(lr=self.var_L, z=z, eps_std=heat, reverse=True)
+        with torch.no_grad():
+            _, nll, _ = self.netG(gt=self.real_H, lr=self.var_L, reverse=False)
+        self.netG.train()
+        return nll.mean().item()
+
+    def get_current_visuals(self, need_gt=True):
+        out_dict = OrderedDict()
+        out_dict['LQ'] = self.var_L.detach()[0].float().cpu()
+        for heat in self.heats:
+            for i in range(self.n_sample):
+                out_dict[('SR', heat, i)] = self.fake_H[(heat, i)].detach()[0].float().cpu()
+        if need_gt:
+            out_dict['GT'] = self.real_H.detach()[0].float().cpu()
+        return out_dict
 
     def get_z(self, heat, seed=None, batch_size=1, lr_shape=None):
         if seed:
@@ -245,8 +273,26 @@ class SRFlowModel:
         else:
             raise ValueError(colored(f'Need pretrained SR network weights to load', 'red'))
 
+    def save_training_state(self, epoch, iter_step):
+        '''Saves training state during training, which will be used for resuming'''
+        state = {'epoch': epoch, 'iter': iter_step, 'schedulers': [], 'optimizers': []}
+        for s in self.schedulers:
+            state['schedulers'].append(s.state_dict())
+        for o in self.optimizers:
+            state['optimizers'].append(o.state_dict())
+        save_filename = '{}.state'.format(iter_step)
+        save_path = os.path.join(f'{self.config.path.exp_path}/state', save_filename)
+
+        paths = natsort.natsorted(glob.glob(f'{self.config.path.exp_path}/state/*.state'), reverse=True)
+        paths = [p for p in paths if "latest_" not in p]
+        if len(paths) > 2:
+            for path in paths[2:]:
+                os.remove(path)
+
+        torch.save(state, save_path)
+
     def save_network(self, network, network_label, iter_label):
-        save_path = f'{self.config.path.exp_path}/chkpt/{iter_label}_{network_label}'
+        save_path = f'{self.config.path.exp_path}/chkpt/{iter_label}_{network_label}.pth'
         if isinstance(network, nn.DataParallel) or isinstance(network, DistributedDataParallel):
             network = network.module
         state_dict = network.state_dict()
