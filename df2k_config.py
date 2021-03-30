@@ -28,6 +28,7 @@ config = DotMap({
         'dist': False,
         'gpu_ids': None,
         'n_iter': 200000,
+        'sanity_freq': 5000,
         'val_freq': 10000,
         'save_freq': 10000,
         'resume': False,

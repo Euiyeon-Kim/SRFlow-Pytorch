@@ -18,10 +18,12 @@ def train(config):
     state_dir = f'{config.path.exp_path}/state'
     chkpt_dir = f'{config.path.exp_path}/chkpt'
     valid_dir = f'{config.path.exp_path}/valids'
+    sanity_dir = f'{config.path.exp_path}/sanity_check'
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(state_dir, exist_ok=True)
     os.makedirs(chkpt_dir, exist_ok=True)
     os.makedirs(valid_dir, exist_ok=True)
+    os.makedirs(sanity_dir, exist_ok=True)
     writer = SummaryWriter(log_dir=log_dir)
 
     # Define Model & Dataloader
@@ -58,6 +60,34 @@ def train(config):
             except RuntimeError as e:
                 print("Skipping ERROR caught in nll = model.optimize_parameters(cur_step): ")
                 print(e)
+
+            if cur_step % config.train.sanity_freq == 0:
+                model.feed_data(train_data)
+                _ = model.test()
+                visuals = model.get_current_visuals()
+                img_name = os.path.splitext(os.path.basename(train_data['PATH'][0]))[0]
+                os.makedirs(f'{sanity_dir}/{cur_step}/{img_name}', exist_ok=True)
+
+                if hasattr(model, 'heats'):
+                    for heat in model.heats:
+                        for i in range(model.n_sample):
+                            sr_img = util.tensor2img(visuals['SR', heat, i])
+                            save_img_path = f'{sanity_dir}/{cur_step}/{img_name}/Heat({heat})_{i}_SR.png'
+                            util.save_img(sr_img, save_img_path)
+                else:
+                    sr_img = util.tensor2img(visuals['SR'])
+                    save_img_path = f'{sanity_dir}/{cur_step}/{img_name}/SR.png'
+                    util.save_img(sr_img, save_img_path)
+
+                # Save LQ images
+                save_img_path_lq = f'{sanity_dir}/{cur_step}/{img_name}/LQ.png'
+                lq_img = util.tensor2img(visuals['LQ'])
+                util.save_img(lq_img, save_img_path_lq)
+
+                # Save GT images
+                gt_img = util.tensor2img(visuals['GT'])
+                save_img_path_gt = f'{sanity_dir}/{cur_step}/{img_name}/GT.png'
+                util.save_img(gt_img, save_img_path_gt)
 
             if cur_step % config.train.val_freq == 0:
                 os.makedirs(f'{valid_dir}/{cur_step}', exist_ok=True)
